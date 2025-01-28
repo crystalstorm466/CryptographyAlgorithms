@@ -92,15 +92,31 @@ int main(int argc, char *argv[]) {
     int L3_size = (sizeof(L3) / sizeof(L3[0]));
     int f2 = 0;
     printf("Created R3\n");
-    for (int i = 0; R3_size; i++) {
+    for (int i = 0; i < R3_size; i++) { // Fix loop termination condition
         f2 = f2 + (R2[i] ^ K2);
         R3[i] = f2 ^ L2[i];
         L3[i] = R2[i];
     }
     printf("Done.\n");
 
+    //combine L3 and R3
+    int L3R3[R3_size + L3_size];
+    int L3R3_size = R3_size + L3_size;
 
-
+    // Copy elements from L3 into L3R3
+    for (int i = 0; i < L3_size; i++) {
+        L3R3[i] = L3[i];
+    }   
+    for (int i = 0; i < R3_size; i++) {
+        L3R3[L3_size + i] = R3[i];
+    }
+    for (int i = 0; i < L3R3_size; i++) {
+        if (i > 0) {
+            printf(", "); // Add a comma before every element except the first
+        }
+        printf("%d", L3R3[i]); // Print the element
+    }   
+    printf("\n"); // Add a newline at the end
 
     return 0;
 }
