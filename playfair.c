@@ -14,11 +14,13 @@ void toLowerCase(char plain[], int ps) {
 
 int removeSpace(char* plain, int ps) {
     int count = 0;
+    
     for (int i = 0; i < ps; i++) {
         if (plain[i] != ' ') {
             plain[count++] = plain[i];
         }
-        plain[count] = '\0';
+    
+    plain[count] = '\0';
         return count;
     }
     return 0;

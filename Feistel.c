@@ -20,7 +20,7 @@ int f(int R, int K) {
     //F = (((REi * Key) >> 4) + REi ) mod 2
     //Round 1 key: 'B'
     //Round 2 key: 'e'
-    return (((R * K) >> 4) + R) % 2;
+    return (((R * K) >> 4) ^ R) % 2;
 }
 
 int DecimalToBinary(int n) {
