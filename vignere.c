@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "mod.h"
 
 
 void encrypt(char *input, char *key, char *output) {
@@ -15,7 +16,8 @@ void encrypt(char *input, char *key, char *output) {
         char *input_pos = strchr(alphabet, input_char);
 
         if (input_pos) {
-            char key_char = key[key_index % key_len];
+            //char key_char = key[key_index % key_len];
+            char key_char = key[mod(key_index, key_len)];
             char *key_pos = strchr(alphabet, key_char);
 
             if (!key_pos) {
@@ -25,7 +27,8 @@ void encrypt(char *input, char *key, char *output) {
 
             int index_input =input_pos - alphabet;
             int index_key = key_pos - alphabet;
-            int new_index = (index_input + index_key) % alpha_len;
+            //int new_index = (index_input + index_key) % alpha_len;
+            int new_index = mod( (index_input + index_key), alpha_len);
             output[i] = alphabet[new_index];
             key_index++;
 
@@ -49,7 +52,7 @@ void decrypt(char *input, char *key, char* output) {
         char *input_pos = strchr(alphabet, input_char);
 
         if (input_pos) {
-            char key_char = key[key_index % key_len];
+            char key_char = key[mod(key_index, key_len)];
             char *key_pos = strchr(alphabet, key_char);
 
             if (!key_pos) {
@@ -59,7 +62,7 @@ void decrypt(char *input, char *key, char* output) {
 
             int index_input =input_pos - alphabet;
             int index_key = key_pos - alphabet;
-            int new_index = (index_input - index_key + alpha_len) % alpha_len;
+            int new_index = mod( (index_input + index_key), alpha_len);
             output[i] = alphabet[new_index];
             key_index++;
 

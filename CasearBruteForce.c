@@ -1,21 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-int mod(int a, int b) { //custom implementation of modulus r = ((a/b) - q )* b 
-    
-    // float q = a/b;
-    // int decimal = (int) q;
-    // q = decimal - q;
-    // return q * b;
-
-    if (b == 0) {  return -1; }
-
-    int r = a - (a / b) * b;
-    if ( r < 0) {
-      r += b;
-    }
-    return r;
-
-}
+#include "mod.h"
 
 
 
