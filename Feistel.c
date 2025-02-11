@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
+#include "mod.h"
 
 // Convert ASCII to binary (decimal representation of binary)
 void toBinaryString(int number, char *binary, int size) {
@@ -20,7 +20,8 @@ int f(int R, int K) {
     //F = (((REi * Key) >> 4) + REi ) mod 2
     //Round 1 key: 'B'
     //Round 2 key: 'e'
-    return (((R * K) >> 4) ^ R) % 2;
+    //return (((R * K) >> 4) ^ R) % 2;
+    return mod((((R * K) >> 4) ^ R),2);
 }
 
 int DecimalToBinary(int n) {
