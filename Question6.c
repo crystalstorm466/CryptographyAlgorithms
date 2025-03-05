@@ -6,9 +6,9 @@
 int get_degree(unsigned int a) {
     int degree = -1;
 
-    while(a) {
-        a >>= 1;
+    while(a != 0) {
         ++degree;
+        a >>= 1;
     }
     return degree;
 }
@@ -20,7 +20,7 @@ unsigned int divide_galosi(unsigned int a, unsigned int m) {
         int shift = get_degree(result) - get_degree(m);
         result ^= (m << shift);
     }
-    return a;
+    return result;
 
 }
 
@@ -34,7 +34,7 @@ unsigned int multiply_galois(unsigned int A, unsigned int B, unsigned int m) {
         }
         A <<= 1;
         if (A & 0x100) { //if A exceeds 8 bit (x^8) reduce module m(x)
-            A^= MODULUS;
+            A^= MODULUS; //0x11b
         }
         B >>= 1;
     }
@@ -60,19 +60,23 @@ int main(int argc, char* argv[]) {
 
     unsigned int oneMultiply = multiply_galois(0xD5, 0x61, 0x11B);
     unsigned int twoMultiply = multiply_galois(0x1E3C, 0x1E3C, 0x11B);
-    printf("0x%x\n", oneDivide);
-    printf("0x%x\n", twoDivide);
-    printf("0x%x\n", threeDivide);
-    printf("0x%x\n", fourDivide);
+    printf("Divide Galosi (0x1000, 0x11B): 0x%x\n", oneDivide);
+    printf("Divide Galosi (0xE1, 0x11B): 0x%x\n", twoDivide);
+    printf("Divide Galosi (0x32CFE1, 0x11B): 0x%x\n", threeDivide);
+    printf("Divide Galosi (0xE1, 0x11B): 0x%x\n", fourDivide);
 
-    printf("0x%x\n", oneMultiply);
-    printf("0x%x\n", twoMultiply);
+
+    printf("Multiply Galosi (0xD5, 0x61, 0x11B): 0x%x\n", oneMultiply);
+    printf("Multiply Galosi (0x1E3C, 0x1E3C, 0x11B): 0x%x\n", twoMultiply);
+
+    //     printf("Multiply Galosi (0xD5, 0x61, 0x11B): 0%d\n", oneMultiply);
+    // printf("Multiply Galosi (0x1E3C, 0x1E3C, 0x11B): 0%d\n", twoMultiply);
     
     printf("Get Degree\n");
-    printf("0x%x\n", get_degree(0x3CF0));
-    printf("0x%x\n", get_degree(0x100000));
-    printf("0x%x\n", get_degree(0x00));
-    printf("0x%x\n", get_degree(0x01));
+    printf("Degree of 0x3CF0: %d\n", get_degree(0x3CF0));
+    printf("Degree of 0x10000: %d\n", get_degree(0x10000));
+    printf("Degree of 0x00: %d\n", get_degree(0x00));
+    printf("Degree of 0x01: %d\n", get_degree(0x01));
 
 
    // printf("Multiplication result: 0x%x\n", multiply_galois(a, b, MODULUS));
