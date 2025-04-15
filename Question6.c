@@ -13,6 +13,16 @@ int get_degree(unsigned int a) {
     return degree;
 }
 
+void divide_galosi(unsigned int a, unsigned int m, unsigned int *r, unsigned int *q) {
+    *r = a;
+    while (get_degree(*r) >= get_degree(m)) {
+        int shift = get_degree(*r) - get_degree(m);
+        *q ^= (1 << shift); 
+        *r ^= ( m << *q);
+    
+    } 
+}
+
 unsigned int divide_galosi(unsigned int a, unsigned int m) {
    unsigned int result = a;
 

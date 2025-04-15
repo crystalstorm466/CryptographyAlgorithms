@@ -1,7 +1,8 @@
+#include <endian.h>
 #include <stdint.h>
 #include <stdio.h>
 #include "aes.h"
-
+#include <string.h>
 
 
     const unsigned char sbox[256] = {
@@ -52,9 +53,7 @@
 
     unsigned char getSBoxValue(unsigned char num) { return sbox[num]; }
 
-    unsigned char getSBoxInvert(unsigned char num) { return rsbox[num]; }
-    unsigned char getRconValue(unsigned char num) { return Rcon[num]; }
-
+   
     //rotate word 8 bits to the left
     //word is char array of size 4 (32 bit)
     void rotate(unsigned char *word) {
@@ -64,9 +63,9 @@
         c = word[0];
         for (int i = 0; i < 3; i++) {
             word[i] = word[i + 1];
-       }
-       word[3] = c;
+
     }
+}
 
     void core(unsigned char *word, int iteration) {
         int i;
@@ -80,45 +79,32 @@
     }
 
 
-
-
-    void expandKey(unsigned char *expandedKey, const unsigned char *key, enum keySize size , size_t expandedKeySize) {
-        int currentsize = 0;
-        int rConIteration = 1;
-        int i;
-        unsigned char t[4] = {0}; //temp;
-
-        //assign prev 4 bytes to t
-        for (i = 0; i < size; i++ ) {
-            expandedKey[i] = key[i];
+    void expandKey(unsigned char *expandedKey, const unsigned char *key, enum keySize size, size_t expandedKeySize) {
+        int i, j;
+        unsigned char temp[4];
+        for (i= 0; i < 16; i++) {
+             expandedKey[i] = key[i];
         }
-        currentsize += size;
-        
-        while (currentsize < expandedKeySize) {
-            for (int i = 0; i < 4; i++) {
-                t[i] = expandedKey[(currentsize -4) + i];
-                 if (currentsize % size == 0) {
-                    core(t, rConIteration++);
-                }
-            }
-               
-
-            if (size == SIZE_32 && ((currentsize % size ) == 16)) {
-                for (int i = 0; i<4; i++) {
-                    t[i] = getSBoxValue(t[i]);
-                }
-
-            }
-
-            //we xor t with 4 byte block before the new expanded key and becomes next 4 bytes in expandedkey
-            for (int i = 0; i < 4; i++ ) {
-                expandedKey[currentsize] = expandedKey[currentsize - size] ^ t[i];
-                currentsize++;
-            }
-
-
+        for (int i = 4; i < expandedKeySize/4; i++) {
+         for (j = 0; j < 4; j++) {
+             temp[j] = expandedKey[(i - 1) * 4 +j];
+     
+         }
+         if (i % 4  == 0) {
+             rotate(temp);
+             for ( j = 0; j < 4; j++) {
+                 temp[j] = getSBoxValue(temp[j]);
+             }
+             temp[0] ^= getRconValue(i/4);
+         }
+         for ( j = 0; j < 4; j++) {
+             expandedKey[ i * 4 + j] = expandedKey[( i -4 ) * 4 + j] ^ temp[j];
+         }
         }
-    }
+     }
+
+
+
 
     void subBytes(unsigned char *state) {
         for (int i = 0; i < 16; i++) {
@@ -129,6 +115,7 @@
         unsigned char tmp;
 
         for (int i = 0; i < nbr; i++) {
+            //if nbr is 3
             tmp = state[0];
             for (int j = 0; j < 3; j++) {
                 state[j] = state[j + 1];
@@ -138,6 +125,11 @@
 
     }
     void shiftRows(unsigned char *state) {
+        //row 0 - no shift
+        //row 1 - shift to left by 1
+        //row 2 - shift to left by 2
+        //row 3 - shift to left by 3
+
         for (int i = 0; i < 4; i++) {
             shiftRow(state + 1 * 4, i);
         }
@@ -168,48 +160,56 @@
         
 }
 
+
 void mixColumns(unsigned char *state) {
-    //c1 = 0x02 * b1 ^ 0x03  * b2 ^ 0x01*b3 ^ 0x01 ^ b4
-    //c2 = 0x01 * b1 ^ 0x02 * b2 ^ 0x03 *b3 ^ 0x01 ^ b4
-    //c3 = 0x01 * b1 ^ 0x01 * b2 ^ 0x02 * b3 ^ 0x03 ^ b4
-    //c4 = 0x03 * b1 ^ 0x01 * b2 ^ 0x01 * b3 ^ 0x02 ^ b4
-    //state box is 1d array of 4x4 matrix
-    unsigned char a[4];
-    unsigned char b[4];
-    unsigned char c[4];
-    unsigned char d[4];
-    unsigned char column[4];
-    char c1 = 0;
-    char c2 = 0;
-    char c3 = 0;
-    char c4 = 0;
+    unsigned char tmp[4];
     for (int i = 0; i < 4; i++) {
+        tmp[0] = multiply_galois(0x02, state[i]) ^ multiply_galois(0x03, state[i + 4]) ^ state[i + 8] ^ state[i + 12];
+        tmp[1] = state[i] ^ multiply_galois(0x02, state[i + 4]) ^ multiply_galois(0x03, state[i + 8]) ^ state[i + 12];
+        tmp[2] = state[i] ^ state[i + 4] ^ multiply_galois(0x02, state[i + 8]) ^ multiply_galois(0x03, state[i + 12]);
+        tmp[3] = multiply_galois(0x03, state[i]) ^ state[i + 4] ^ state[i + 8] ^ multiply_galois(0x02, state[i + 12]);
         for (int j = 0; j < 4; j++) {
-            column[j] = state[(j *4) + i];
+            state[i + j * 4] = tmp[j];
         }
     }
+}
 
-    column[0] = multiply_galois(0x02, state[0]) ^ multiply_galois(0x03, state[1]) ^ multiply_galois(0x01, state[2]) ^ multiply_galois(0x01, state[3]);
-    column[1] = multiply_galois(0x01, state[4]) ^ multiply_galois(0x02, state[5]) ^ multiply_galois(0x03, state[6]) ^ multiply_galois(0x01, state[7]);
-    column[2] = multiply_galois(0x01, state[8]) ^ multiply_galois(0x01, state[9]) ^ multiply_galois(0x02, state[10]) ^ multiply_galois(0x03, state[11]);
-    column[3] = multiply_galois(0x04, state[12]) ^ multiply_galois(0x01, state[13]) ^ multiply_galois(0x01, state[14]) ^ multiply_galois(0x02, state[15]);
+// void mixColumns(unsigned char *state) {
+//     //c1 = 0x02 * b1 ^ 0x03  * b2 ^ 0x01*b3 ^ 0x01 ^ b4
+//     //c2 = 0x01 * b1 ^ 0x02 * b2 ^ 0x03 *b3 ^ 0x01 ^ b4
+//     //c3 = 0x01 * b1 ^ 0x01 * b2 ^ 0x02 * b3 ^ 0x03 ^ b4
+//     //c4 = 0x03 * b1 ^ 0x01 * b2 ^ 0x01 * b3 ^ 0x02 ^ b4
+//     //state box is 1d array of 4x4 matrix
+//     unsigned char a[4];
+//     unsigned char b[4];
+//     unsigned char c[4];
+//     unsigned char d[5];
+//     unsigned char column[4];
+//     char c1 = 0;
+//     char c2 = 0;
+//     char c3 = 0;
+//     char c4 = 0;
+//     for (int i = 0; i < 4; i++) {
+//         for (int j = 0; j < 4; j++) {
+//             column[j] = state[(j *4) + i];
+//         }
+//     }
 
-    for (int i = 0; i < 4; i++) {//put values back into state
-        for (int j = 0; j < 4; j++) {
-            state[(j * 4) + i] = column[j];
+//     column[0] = multiply_galois(0x02, state[0]) ^ multiply_galois(0x03, state[1]) ^ multiply_galois(0x01, state[2]) ^ multiply_galois(0x01, state[3]);
+//     column[1] = multiply_galois(0x01, state[4]) ^ multiply_galois(0x02, state[5]) ^ multiply_galois(0x03, state[6]) ^ multiply_galois(0x01, state[7]);
+//     column[2] = multiply_galois(0x01, state[8]) ^ multiply_galois(0x01, state[9]) ^ multiply_galois(0x02, state[10]) ^ multiply_galois(0x03, state[11]);
+//     column[3] = multiply_galois(0x04, state[12]) ^ multiply_galois(0x01, state[13]) ^ multiply_galois(0x01, state[14]) ^ multiply_galois(0x02, state[15]);
 
-        }
-    }
+//     for (int i = 0; i < 4; i++) {//put values back into state
+//         for (int j = 0; j < 4; j++) {
+//             state[(j * 4) + i] = column[j];
+
+//         }
+//     }
     
-}
+// }
 
 
-void aes_round(unsigned char *state, const unsigned char *roundKey) {
-    subBytes(state);
-    shiftRows(state);
-    mixColumns(state);
-    addRoundKey(state, roundKey);
-}
 
 void createRoundKey(unsigned char *expandedKey, unsigned char *roundkey) { //xor expanded key with roundkey 
     for (int i = 0; i < 4; i++) {
@@ -220,8 +220,14 @@ void createRoundKey(unsigned char *expandedKey, unsigned char *roundkey) { //xor
 }
 
 
-
-
-
-
-    
+void final_aes_round(unsigned char *state, const unsigned char *roundKey) {
+    subBytes(state);
+    shiftRows(state);
+    addRoundKey(state, roundKey);
+}
+void aes_round(unsigned char *state, const unsigned char *roundKey) {
+    subBytes(state);
+    shiftRows(state);
+    mixColumns(state);
+    addRoundKey(state, roundKey);
+}
