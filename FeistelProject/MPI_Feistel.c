@@ -154,6 +154,7 @@ int main(int argc, char *argv[]) {
     else {
         fprintf(stderr, "Error! Mode must be 'e' for encryption or 'd' for decryption.\n");
         free(keys);
+        MPI_Finalize();
         return 5;
     }
     
@@ -163,6 +164,7 @@ int main(int argc, char *argv[]) {
    if (!fp_in) {
        fprintf(stderr, "Error opening input file: %s\n", input);
        free(keys);
+        MPI_Finalize();
        return 3;
    }
    
@@ -171,6 +173,7 @@ int main(int argc, char *argv[]) {
        fprintf(stderr, "Memory allocation failed for input buffer.\n");
        MPI_File_close(&fp_in);
        free(keys);
+      MPI_Finalize();
        return 1;
    }
    
@@ -215,14 +218,18 @@ int main(int argc, char *argv[]) {
                     R = L ^ (f(R, keys[r], 0x13) & 0x0F);
                     L = temp;
                 }
-                local_buffer[i] = (L << 4) | (R & 0x0F);
+              local_buffer[i] = (L << 4) | (R & 0x0F);
+            //  local_buffer[i] = L;
+            //  local_buffer[i + 1] = R;
 
         //MPI_File_write_all(&out, 1, 1, fp_out);
                 printf("%02x", local_buffer[i]);
             }
         } else if (block_size == 16) {
-            printf("Encryption 16-bit blocks\n");
-            //question 1 approach 
+              if (rank == 0) {
+                printf("Encryption 16-bit blocks\n");
+              }
+        //question 1 approach 
             // Process data two bytes at a time
             for (long i = 0; i < chunk_size; i+=2) {
                 unsigned char L = local_buffer[i];
@@ -232,13 +239,17 @@ int main(int argc, char *argv[]) {
                     // Use GF(2^8) arithmetic with modulus 0x11B
                     R = L ^ (f(R, keys[r], 0x11B) & 0xFF);
                     L = temp;
-                }
-            //    MPI_File_write_all(&L, 1, 1, fp_out);
-            //    MPI_File_write_all(&R, 1, 1, fp_out);
-                printf("%02x", L);
-                printf("%02x", R);
+                }        
+               // printf("%02x", L);
+               // printf("%02x", R);
 
-                local_buffer[i] = (L << 4) | (R & 0x0F);
+              //local_buffer[i] = (L << 4) | (R & 0x0F);
+              local_buffer[i] = L;
+              local_buffer[i + 1] = R;
+
+              printf("%02x", L);
+              printf("%02x", R);
+         
 
             }
         }    
@@ -255,15 +266,13 @@ int main(int argc, char *argv[]) {
                 MPI_File_close(&fp_out);
                 free(local_buffer);
                 free(keys);
+                MPI_Finalize();
                 return 5;
             }
-             shift_pp = filesize/ size;
-            start_shift = rank * shift_pp;
-            end_shift = start_shift + shift_pp;
+          
 
-
-            for (long i = start_offset; i < chunk_size; i++) {
-                unsigned char block = decBuffer[i];
+            for (long i = 0; i < chunk_size; i++) {
+                unsigned char block = local_buffer[i];
                 unsigned char L = (block >> 4) & 0x0F;
                 unsigned char R = block & 0x0F;
                 for (int r = rounds - 1; r >= 0; r--) {
@@ -271,26 +280,26 @@ int main(int argc, char *argv[]) {
                     L = R ^ (f(L, keys[r], 0x13) & 0x0F);
                     R = temp;
                 }
-                decBuffer[i] = (L << 4) | (R & 0x0F);
+                local_buffer[i] = (L << 4) | (R & 0x0F);
             }
             // Remove padding: assume last byte indicates the number of padding bytes
-            int unpadded_len = filesize;
-            if (unpadded_len > 0) {
-                unsigned char pad_val = decBuffer[unpadded_len - 1];
-                if (pad_val > 0 && pad_val <= block_size) {
-                    unpadded_len -= pad_val;
-                }
-            }
+           // int unpadded_len = filesize;
+           //if (unpadded_len > 0) {
+           //     unsigned char pad_val = decBuffer[unpadded_len - 1];
+           //     if (pad_val > 0 && pad_val <= block_size) {
+           //         unpadded_len -= pad_val;
+           //     }
+           // }
                
-              free(local_buffer);
-              free(keys);
- 
+              //local_buffer = decBuffer;
+           
             //MPI_File_write_all(decBuffer, 1, unpadded_len, fp_out);
-            printf("%s\n", decBuffer);
-            free(decBuffer);
+            printf("%s\n", local_buffer);
+             
         } else if (block_size == 16) { //normal way
-            printf("Decryption 16-bit block sizes\n");
-
+            if (rank == 0) {
+                printf("Decryption 16-bit block sizes\n");
+            }
             // For 16-bit mode, also allocate a decryption buffer
             unsigned char *decBuffer = malloc(filesize);
             if (!decBuffer) {
@@ -299,50 +308,60 @@ int main(int argc, char *argv[]) {
                 MPI_File_close(&fp_out);
                 free(local_buffer);
                 free(keys);
+                MPI_Finalize();
                 return 5;
             }
-     shift_pp = filesize/ size;
-    start_shift = rank * shift_pp;
-    end_shift = start_shift + shift_pp;
+  
 
 
-            for (long i = start_offset; i < chunk_size; i += 2) {
-                unsigned char L = decBuffer[i];
-                unsigned char R = decBuffer[i + 1];
+            for (long i = 0; i < chunk_size; i += 2) {
+                unsigned char L = local_buffer[i];
+                unsigned char R = local_buffer[i + 1];
                 for (int r = rounds - 1; r >= 0; r--) {
                     unsigned char temp = L;
-                    L = R ^ (f(L, keys[r], 0x11B) & 0xFF);
-                    R = temp;
+                    L = R;
+                    R = temp ^ (f(R, keys[r], 0x11B) & 0xFF);
+                    // L = temp;
                 }
                 local_buffer[i] = L;
                 local_buffer[i + 1] = R;
             }
             // Remove padding (last byte gives the number of padding bytes)
+           /*
             int unpadded_len = filesize;
             if (unpadded_len > 0) {
-                unsigned char pad_val = decBuffer[unpadded_len - 1];
+                unsigned char pad_val = local_buffer[unpadded_len - 1];
                 if (pad_val > 0 && pad_val <= block_size) {
                     unpadded_len -= pad_val;
                 }
             }
-            local_buffer = decBuffer;
+          */
+          ///  local_buffer = decBuffer;
          //   MPI_File_write_all(decBuffer, 1, unpadded_len, fp_out);
             printf("%s\n", local_buffer);
 
-
-            free(decBuffer);
         }
         
         }
+
+        if (rank == 0) {
+             int unpadded_len = filesize;
+            if (unpadded_len > 0) {
+                unsigned char pad_val = local_buffer[unpadded_len - 1];
+                if (pad_val > 0 && pad_val <= block_size) {
+                    unpadded_len -= pad_val;
+                }
+            }
+
+        }
         //write to buffer
         MPI_File fp_out;
-        MPI_File_open(MPI_COMM_WORLD, local_buffer, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fp_out);
+        MPI_File_open(MPI_COMM_WORLD, output, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fp_out);
         MPI_File_write_at(fp_out, start_offset, local_buffer, chunk_size, MPI_CHAR, MPI_STATUS_IGNORE);
         MPI_File_close(&fp_out);
 
 
         //MPI_File_write_all(fp_out);
-        
         free(local_buffer);
         free(keys);
         MPI_Finalize();

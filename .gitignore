@@ -10,3 +10,6 @@ AES.zip
 Question
 AES/aes
 Feistel.tar.zstd
+Feistel/sample.txt
+Feistel/*.txt
+
